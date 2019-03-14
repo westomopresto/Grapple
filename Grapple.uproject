@@ -3,6 +3,14 @@
 	"EngineAssociation": "4.21",
 	"Category": "",
 	"Description": "",
-	"Modules":  ""
-		
+	"Modules": [
+		{
+			"Name": "Grapple",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		}
+	]
 }
