@@ -7,7 +7,13 @@ ACharacter_w_Tags::ACharacter_w_Tags()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	TeamId = FGenericTeamId(10);
+}
 
+
+FGenericTeamId ACharacter_w_Tags::GetGenericTeamId() const
+{
+	return TeamId;
 }
 
 // Called when the game starts or when spawned

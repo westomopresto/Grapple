@@ -5,7 +5,10 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "GameplayTagAssetInterface.h"
+#include "GenericTeamAgentInterface.h"
 #include "Character_w_Tags.generated.h"
+
+class ACharacter_w_Tags;
 
 UCLASS()
 class GRAPPLE_API ACharacter_w_Tags : public ACharacter, public IGameplayTagAssetInterface
@@ -28,4 +31,11 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameplayTags")
 	FGameplayTagContainer GameplayTags;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameplayTags")
+	FGenericTeamId TeamId;
+
+	//teams
+private:
+	FGenericTeamId GetGenericTeamId() const;
 };
