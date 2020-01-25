@@ -23,6 +23,10 @@
 		{
 			"Name": "EasyColorPicker",
 			"Enabled": true
+		},
+		{
+			"Name": "SteamVR",
+			"Enabled": false
 		}
 	]
 }
