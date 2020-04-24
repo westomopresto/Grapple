@@ -18,4 +18,6 @@ ATeamAIController();
 public:
 // Override this function 
 ETeamAttitude::Type GetTeamAttitudeTowards(const AActor& Other) const override;
+
+virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn = true) override;
 };
