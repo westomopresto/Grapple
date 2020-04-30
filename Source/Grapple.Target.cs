@@ -8,7 +8,7 @@ public class GrappleTarget : TargetRules
 	public GrappleTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
-
-		ExtraModuleNames.AddRange( new string[] { "Grapple" } );
-	}
+        bUsesSteam = true;
+        ExtraModuleNames.AddRange( new string[] { "Grapple" } );
+    }
 }

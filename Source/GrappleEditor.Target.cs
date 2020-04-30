@@ -8,7 +8,7 @@ public class GrappleEditorTarget : TargetRules
 	public GrappleEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
-
+        bUsesSteam = true;
 		ExtraModuleNames.AddRange( new string[] { "Grapple" } );
 	}
 }
