@@ -2,6 +2,7 @@
 
 #pragma once
 #include "CoreMinimal.h"
+#include "Engine/Engine.h"
 #include "BlueprintDataDefinitions.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Online.h"
@@ -38,16 +39,16 @@ public:
 		static void GetExtraSettings(FBlueprintSessionResult SessionResult, TArray<FSessionPropertyKeyPair> & ExtraSettings);
 
 		// Get the current session state
-		UFUNCTION(BlueprintCallable, Category = "Online|AdvancedSessions|SessionInfo")
-		static void GetSessionState(EBPOnlineSessionState &SessionState);
+		UFUNCTION(BlueprintCallable, Category = "Online|AdvancedSessions|SessionInfo", meta = (WorldContext = "WorldContextObject"))
+		static void GetSessionState(UObject* WorldContextObject, EBPOnlineSessionState &SessionState);
 
 		// Get the current session settings
-		UFUNCTION(BlueprintCallable, Category = "Online|AdvancedSessions|SessionInfo", meta = (ExpandEnumAsExecs = "Result"))
-		static void GetSessionSettings(int32 &NumConnections, int32 &NumPrivateConnections, bool &bIsLAN, bool &bIsDedicated, bool &bAllowInvites, bool &bAllowJoinInProgress, bool &bIsAnticheatEnabled, int32 &BuildUniqueID, TArray<FSessionPropertyKeyPair> &ExtraSettings, EBlueprintResultSwitch &Result);
+		UFUNCTION(BlueprintCallable, Category = "Online|AdvancedSessions|SessionInfo", meta = (ExpandEnumAsExecs = "Result", WorldContext = "WorldContextObject"))
+		static void GetSessionSettings(UObject* WorldContextObject, int32 &NumConnections, int32 &NumPrivateConnections, bool &bIsLAN, bool &bIsDedicated, bool &bAllowInvites, bool &bAllowJoinInProgress, bool &bIsAnticheatEnabled, int32 &BuildUniqueID, TArray<FSessionPropertyKeyPair> &ExtraSettings, EBlueprintResultSwitch &Result);
 
 		// Check if someone is in the current session
-		UFUNCTION(BlueprintCallable, Category = "Online|AdvancedSessions|SessionInfo")
-		static void IsPlayerInSession(const FBPUniqueNetId &PlayerToCheck, bool &bIsInSession);
+		UFUNCTION(BlueprintCallable, Category = "Online|AdvancedSessions|SessionInfo", meta = (WorldContext = "WorldContextObject"))
+		static void IsPlayerInSession(UObject* WorldContextObject, const FBPUniqueNetId &PlayerToCheck, bool &bIsInSession);
 		
 		// Make a literal session search parameter
 		UFUNCTION(BlueprintPure, Category = "Online|AdvancedSessions|SessionInfo|Literals")
@@ -65,8 +66,8 @@ public:
 		static void GetSessionID_AsString(const FBlueprintSessionResult & SessionResult, FString& SessionID);
 
 		// Get a string copy of the current session ID
-		UFUNCTION(BlueprintPure, Category = "Online|AdvancedSessions|SessionInfo")
-		static void GetCurrentSessionID_AsString(FString& SessionID);
+		UFUNCTION(BlueprintPure, Category = "Online|AdvancedSessions|SessionInfo", meta = (WorldContext = "WorldContextObject"))
+		static void GetCurrentSessionID_AsString(UObject* WorldContextObject, FString& SessionID);
 
 		// Get the Unique Current Build ID
 		UFUNCTION(BlueprintPure, Category = "Online|AdvancedSessions|SessionInfo")
@@ -100,6 +101,7 @@ public:
 		static void GetSessionPropertyByte(const TArray<FSessionPropertyKeyPair> & ExtraSettings, FName SettingName, ESessionSettingSearchResult &SearchResult, uint8 &SettingValue);
 
 		// Get session custom information key/value as Bool
+		// Steam only currently supports Int,Float,String,BYTE values for search filtering!!!
 		UFUNCTION(BlueprintCallable, Category = "Online|AdvancedSessions|SessionInfo", meta = (ExpandEnumAsExecs = "SearchResult"))
 		static void GetSessionPropertyBool(const TArray<FSessionPropertyKeyPair> & ExtraSettings, FName SettingName, ESessionSettingSearchResult &SearchResult, bool &SettingValue);
 
@@ -121,6 +123,7 @@ public:
 		static FSessionPropertyKeyPair MakeLiteralSessionPropertyByte(FName Key, uint8 Value);
 
 		// Make a literal session custom information key/value pair from Bool
+		// Steam only currently supports Int,Float,String,BYTE values for search filtering!
 		UFUNCTION(BlueprintPure, Category = "Online|AdvancedSessions|SessionInfo|Literals")
 		static FSessionPropertyKeyPair MakeLiteralSessionPropertyBool(FName Key, bool Value);
 

@@ -1,22 +1,25 @@
 {
-    "FileVersion" : 3,
- 
-    "FriendlyName" : "Advanced Steam Sessions",
-    "Version" : 4.21,
-    "VersionName": "4.21",
-    "Description" : "Adds new blueprint functions to handle more advanced session operations in Steam. REQUIRES ADVANCED SESSIONS",
-    "Category" : "Advanced Sessions Plugin",
-    "CreatedBy" : "Joshua Statzer",
-    "CreatedByURL" : "N/A",
- 
-    "Modules" :
-    [
-        {
-            "Name" : "AdvancedSteamSessions",
-            "Type" : "RunTime",
-			"LoadingPhase" : "PreDefault"
-        } 
-    ],
+	"FileVersion": 3,
+	"Version": 0,
+	"VersionName": "4.24",
+	"FriendlyName": "Advanced Steam Sessions",
+	"Description": "Adds new blueprint functions to handle more advanced session operations in Steam. REQUIRES ADVANCED SESSIONS",
+	"Category": "Advanced Sessions Plugin",
+	"CreatedBy": "Joshua Statzer",
+	"CreatedByURL": "N/A",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "4.24.0",
+	"CanContainContent": false,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "AdvancedSteamSessions",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault"
+		}
+	],
 	"Plugins": [
 		{
 			"Name": "AdvancedSessions",
