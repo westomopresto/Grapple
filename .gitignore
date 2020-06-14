@@ -58,3 +58,7 @@ Content/1st3rdFoundation/Libraries/FirstPersonBP/Maps/Central_Mine_BuiltData.uas
 *.log
 Content/ChameleonDemo/ChameleonDemoHall_BuiltData.uasset
 Content/Fadeout_Content/Core/Maps/map_Mechanyon_BuiltData.uasset
+Content/Fadeout_Content/Core/Maps/map_Mechanyon_BuiltData.uasset
+Content/Fadeout_Content/Core/Maps/MainMenu_BuiltData.uasset
+Content/Fadeout_Content/Core/Maps/CharacterSelect_BuiltData.uasset
+Content/Fadeout_Content/Core/Maps/Character_Customize_BuiltData.uasset
