@@ -60,6 +60,10 @@
 		{
 			"Name": "StaticMeshEditorExtension",
 			"Enabled": true
+		},
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true
 		}
 	]
 }
