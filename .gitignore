@@ -55,7 +55,6 @@ Content/1st3rdFoundation/Core/Maps/Central_Mine_BuiltData.uasset
 Content/1st3rdFoundation/Libraries/FirstPersonBP/Maps/Grapple_Map_BuiltData.uasset
 Content/1st3rdFoundation/Libraries/FirstPersonBP/Maps/Central_Mine_BuiltData.uasset
 *.log
-*.log
 Content/ChameleonDemo/ChameleonDemoHall_BuiltData.uasset
 Content/Fadeout_Content/Core/Maps/map_Mechanyon_BuiltData.uasset
 Content/Fadeout_Content/Core/Maps/map_Mechanyon_BuiltData.uasset
@@ -68,3 +67,4 @@ Content/Fadeout_Content/Core/Maps/MainMenu_BuiltData.uasset
 Content/Fadeout_Content/Core/Maps/map_battlefield_BuiltData.uasset
 Content/Fadeout_Content/Core/Maps/map_Mechanyon_BuiltData.uasset
 *_BuiltData.uasset
+*.log
