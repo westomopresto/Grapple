@@ -5,4 +5,4 @@ By Weston Mitchell.
 
 A game about saving prisoners in a mine, and escaping. 
 
-![alt text](https://i.imgur.com/LsjvVfU.jpg)
+![alt text](https://i.imgur.com/u0cb7Eo.jpg)
