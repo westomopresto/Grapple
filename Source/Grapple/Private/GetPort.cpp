@@ -4,7 +4,7 @@
 #include "GetPort.h"
 
 
-const INT UGetPort::GetPort(UObject* WorldContextObject) {
+const int UGetPort::GetPort(UObject* WorldContextObject) {
 	
 	if (WorldContextObject)
 	{

@@ -15,5 +15,5 @@ class GRAPPLE_API UGetPort : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 		UFUNCTION(BlueprintPure, meta = (WorldContext = "WorldContextObject", Friendly = "Get Server Port", CompactNodeTitle = "GetPort"), Category = "Server Info")
-		static const INT GetPort(UObject* WorldContextObject);
+		static const int GetPort(UObject* WorldContextObject);
 };
