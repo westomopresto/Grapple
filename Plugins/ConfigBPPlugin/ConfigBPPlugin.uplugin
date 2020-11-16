@@ -1,0 +1,28 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0.9",
+	"FriendlyName": "ConfigBP",
+	"Description": "ConfigBP is an easy to use blueprint library for working with configuration files.",
+	"Category": "Blueprints",
+	"CreatedBy": "HowToCompute",
+	"CreatedByURL": "https://how2compute.cf",
+	"DocsURL": "https://docs.google.com/document/d/1beSxWvPCl6Y3L7qTUrpUAWPXh_Q6lf-TXLOMM6zzzME/edit?usp=sharing",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/72cafa6deb374cf48f12c8ef45ffa129",
+	"SupportURL": "mailto:howtocompute123@gmail.com",
+	"EngineVersion": "4.24.0",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "ConfigBPPlugin",
+			"Type": "Runtime",
+			"LoadingPhase": "PreLoadingScreen",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Android",
+				"Linux"
+			]
+		}
+	]
+}
