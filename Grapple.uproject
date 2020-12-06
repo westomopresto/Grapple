@@ -78,6 +78,10 @@
 				"Win64",
 				"Android"
 			]
+		},
+		{
+			"Name": "Niagara",
+			"Enabled": true
 		}
 	]
 }
