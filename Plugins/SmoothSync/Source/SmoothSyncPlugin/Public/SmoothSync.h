@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Kismet/GameplayStatics.h"
-#include <algorithm>    // std::max
 #include "Runtime/Engine/Classes/GameFramework/MovementComponent.h"
 #include "Runtime/Engine/Classes/GameFramework/Character.h"
 #include "Runtime/Engine/Classes/GameFramework/CharacterMovementComponent.h"
@@ -56,6 +55,11 @@ private:
 	
 	int samePositionSentCount = 0;
 	int sameRotationSentCount = 0;
+
+	/// <summary> Used to know when the owner has changed. Not an identifier. </summary>
+	uint8 previousReceivedOwnerInt = 1;
+
+	AController* owningControllerLastFrame = nullptr;
 
 public:
 
@@ -379,6 +383,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Important)
 		bool alwaysSendOrigin = false;
 
+	/// <summary>Sync changes in owernship.</summary>
+	/// <remarks>
+	/// Sends an extra byte with each network state that allows clients to handle ownership changes
+	/// </remarks>
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Important)
+		bool syncOwnershipChange = false;
+
 	/// <summary>Non-owners keep a list of recent States received over the network for interpolating.</summary>
 	/// <remarks>Index 0 is the newest received State.</remarks>
 	SmoothState **stateBuffer;
@@ -460,8 +471,18 @@ public:
 	bool sendAngularVelocity = true;
 	/// <summary>Variable we set at the beginning of Update so we only need to do the checks once a frame.</summary>
 	bool sendMovementMode = true;
+	/// <summary>Normally movement mode is only sent when it changes, but networking in unrealiable, so you may get better results sending it all the time.</summary>
+	bool alwaysSendMovementMode = false;
 	/// <summary>Used to turn Smooth Sync off and on.</summary>
 	bool isBeingUsed = true;
+
+	/// <summary>
+	/// The time that the non-owner uses to playback the Transform of the owner. This is sent from the owner to non-owners.
+	/// This is exposed so you can line up things like animations with the exact positioning. You could send over what animation you want in your own RPC along with 
+	/// UGameplayStatics::GetRealTimeSeconds(smoothSyncScript->GetOwner()->GetWorld()) and then have the animation happen when this variable has reached that time on the non-owners.
+	/// </summary>
+	UPROPERTY(BlueprintReadOnly, Category = Important)
+	float interpolationTime = 0;
 
 	/// <summary>
 	/// The last owner time received over the network
@@ -498,7 +519,6 @@ public:
 	UPrimitiveComponent *primitiveComponent;
 
 	uint8 latestSentMovementMode = 0;
-	uint8 latestReceivedMovementMode = 0;
 
 	TMap<USmoothSync*, bool> wasRelevant;
 	float approximateNetworkTimeOnOwner = 0;
@@ -530,6 +550,8 @@ public:
 	FVector positionLastFrame = FVector::ZeroVector;
 	FIntVector originLastFrame = FIntVector::ZeroValue;
 	FQuat rotationLastFrame = FQuat::Identity;
+	FVector linearVelocityLastFrame = FVector::ZeroVector;
+	FVector angularVelocityLastFrame = FVector::ZeroVector;
 	FVector latestReceivedVelocity;
 	FVector latestReceivedAngularVelocity;
 
@@ -540,6 +562,9 @@ public:
 	/// <summary>Actor will come to rotational rest if it stops rotating by this amount. Used to smooth out stops and starts.</summary>
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Thresholds)
 		float atRestRotationThreshold = .1f;
+
+	/// <summary> Used to know when the owner has changed. Not an identifier. Only sent from Server. </summary>
+	uint8 ownerChangeIndicator = 1;
 
 #ifdef TimeSync
 	UTimeSyncGameStateComponentBase* timeSync = nullptr;
@@ -591,14 +616,15 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	void checkIfOwnerHasChanged(SmoothState* newState);
 	void applyInterpolationOrExtrapolation();
 	void setPosition(FVector position);
 	void setRotation(const FQuat &rotation);
 	void setScale(FVector scale);
 	void setLinearVelocity(FVector position);
 	void setAngularVelocity(FVector position);
-	void interpolate(float interpolationTime, SmoothState *targetState);
-	bool extrapolate(float interpolationTime, SmoothState *targetState, bool& shouldSetPosition);
+	void interpolate(float interpolationTimeLocal, SmoothState *targetState);
+	bool extrapolate(float interpolationTimeLocal, SmoothState *targetState, bool& shouldSetPosition);
 	void addState(SmoothState *state);
 	void addTeleportState(SmoothState *state);
 	FVector getPosition();
@@ -692,7 +718,9 @@ public:
 	bool deserializePositionalRestFlag(char syncInformation);
 	bool deserializeRotationalRestFlag(char syncInformation);
 
-	void shouldTeleport(SmoothState *start, SmoothState *end, float interpolationTime, float *t);
+	AController* GetOwningController();
+
+	void shouldTeleport(SmoothState *start, SmoothState *end, float interpolationTimeLocal, float *t);
 	
 	/// <summary>
 	/// Adjust estimated owner time based on average difference between local and owner time

@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 28,
-	"VersionName": "1.28",
+	"Version": 32,
+	"VersionName": "1.32",
 	"FriendlyName": "Smooth Sync Plugin",
 	"Description": "Syncs your transforms Smoothly across the network.",
 	"Category": "Smooth Sync",
@@ -29,12 +29,6 @@
 				"XboxOne",
 				"Switch"
 			]
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "TimeSync",
-			"Enabled": false
 		}
 	]
 }

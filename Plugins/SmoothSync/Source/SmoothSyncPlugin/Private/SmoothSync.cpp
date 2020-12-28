@@ -5,6 +5,7 @@
 #include "Engine/World.h"
 #include "Runtime/Engine/Classes/Engine/WorldComposition.h"
 #include "Components/PrimitiveComponent.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 // Sets default values for this component's properties
 USmoothSync::USmoothSync()
@@ -17,11 +18,22 @@ void USmoothSync::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 
-	// Check if we have a stateBuffer variable we need to cleanup.
-	if (stateBuffer != NULL)
+	if (stateBuffer != nullptr)
 	{
+		for (int i = 0; i < FMath::Max(calculatedStateBufferSize, 30); i++)
+		{
+			delete(stateBuffer[i]);
+			stateBuffer[i] = nullptr;
+		}
+
 		delete[] stateBuffer;
+		stateBuffer = nullptr;
 	}
+
+	delete sendingTempState;
+	sendingTempState = nullptr;
+	delete targetTempState;
+	targetTempState = nullptr;
 }
 
 // Native event for when play begins for this actor.
@@ -69,11 +81,11 @@ void USmoothSync::BeginPlay()
 	// Setup some variable states for use.
 	sendingTempState = new SmoothState();
 	targetTempState = new SmoothState();
-	stateBuffer = new SmoothState*[std::max(calculatedStateBufferSize, 30)];
-	int stateBufferLength = std::max(calculatedStateBufferSize, 30);
+	stateBuffer = new SmoothState*[FMath::Max(calculatedStateBufferSize, 30)];
+	int stateBufferLength = FMath::Max(calculatedStateBufferSize, 30);
 	for (int i = 0; i < stateBufferLength; i++)
 	{
-		stateBuffer[i] = NULL;
+		stateBuffer[i] = nullptr;
 	}
 
 	// If we want to extrapolate forever, force variables accordingly. 
@@ -298,6 +310,12 @@ bool USmoothSync::SmoothSyncTeleportServerToClients_Validate(FVector position, F
 }
 void USmoothSync::SmoothSyncTeleportServerToClients_Implementation(FVector position, FVector rotation, FVector scale, float tempOwnerTime)
 {
+	if (realObjectToSync == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("realObjectToSync is not setup on client yet. Cannot teleport."));
+		return;
+	}
+
 	// Only set up new State if we aren't the system determining the Transform.
 	if (!shouldSendTransform())
 	{
@@ -338,7 +356,18 @@ bool USmoothSync::ClientSendsTransformToServer_Validate(const TArray<uint8>& val
 }
 void USmoothSync::ClientSendsTransformToServer_Implementation(const TArray<uint8>& value)
 {
-	ServerSendsTransformToEveryone(value);
+	if (syncOwnershipChange)
+	{
+		// When handling ownership changes the server needs to add an extra byte to the outgoing state
+		// so that clients can know when the owner changes
+		TArray<uint8> ownerState = TArray<uint8>(value);
+		ownerState.Add(ownerChangeIndicator);
+		ServerSendsTransformToEveryone(ownerState);
+	}
+	else
+	{
+		ServerSendsTransformToEveryone(value);
+	}
 }
 
 bool USmoothSync::ServerSendsTransformToEveryone_Validate(const TArray<uint8>& value)
@@ -409,15 +438,15 @@ void USmoothSync::ServerSendsTransformToEveryone_Implementation(const TArray<uin
 			uint8 tempMovementMode;
 			readFromBuffer(&tempMovementMode);
 			stateToAdd->movementMode = tempMovementMode;
-			latestReceivedMovementMode = tempMovementMode;
+			stateToAdd->wasMovementModeReceived = true;
 		}
 		else
 		{
-			stateToAdd->movementMode = latestReceivedMovementMode;
+			// When the state is added it will get the movement mode from the state before it in the buffer
 		}
 	}
 
-	if (!realObjectToSync)
+	if (realObjectToSync == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Could not find target for network state message."));
 		return;
@@ -669,7 +698,31 @@ void USmoothSync::ServerSendsTransformToEveryone_Implementation(const TArray<uin
 		stateToAdd->angularVelocity = latestReceivedAngularVelocity;
 	}
 
+	// Check if ownership has changed
+	if (syncOwnershipChange)
+	{
+		// Only need to read it on clients, the server already knows it
+		if (!realObjectToSync->GetWorld()->IsServer())
+		{
+			readFromBuffer(&ownerChangeIndicator);
+		}
+		checkIfOwnerHasChanged(stateToAdd);
+	}
+
 	addState(stateToAdd);
+}
+
+/// <summary>Checks if the owner has changed on each received State.</summary>
+/// <remarks>If the owner has changed, the state buffer is cleared and owner time is reset</remarks>
+void USmoothSync::checkIfOwnerHasChanged(SmoothState* newState)
+{
+	if (syncOwnershipChange &&
+		ownerChangeIndicator != previousReceivedOwnerInt)
+	{
+		previousReceivedOwnerInt = ownerChangeIndicator;
+		clearBuffer();
+		ownerTimeOffsets.Empty();
+	}
 }
 
 // Called every frame
@@ -699,7 +752,23 @@ void USmoothSync::TickComponent(float DeltaTime, ELevelTick TickType, FActorComp
 
 	if (GetWorld()->IsServer())
 	{
-		// Check to see if network relevancy has changed. If so we need to resend the latest state with the latest origin
+		if (syncOwnershipChange)
+		{
+			// Check if owner has changed
+			AController* owningController = GetOwningController();
+			if (owningController != owningControllerLastFrame)
+			{
+				ownerChangeIndicator++;
+				// 127 for max number in a byte and go back to 1 so it's different than default 0.
+				if (ownerChangeIndicator > 127)
+				{
+					ownerChangeIndicator = 1;
+				}
+			}
+			owningControllerLastFrame = owningController;
+		}
+
+		// Check to see if network relevancy has changed. If so we need to resend the latest State with the latest origin
 		// and movement mode. Otherwise objects can get stuck at their old origin when becoming relevant on non-owners
 		bool becameRelevantToAnyone = false;
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -727,10 +796,10 @@ void USmoothSync::TickComponent(float DeltaTime, ELevelTick TickType, FActorComp
 
 		if (becameRelevantToAnyone)
 		{
-			// Unsetting lastOriginWhenStateWasSent forces the origin to be included in the state that is sent
+			// Unsetting lastOriginWhenStateWasSent forces the origin to be included in the State that is sent
 			forceStateSend = true;
-			// Send the state now unless we are about to send it below because we are owner
-			if (!sendTransform && stateBuffer != NULL && stateBuffer[0] != NULL)
+			// Send the State now unless we are about to send it below because we are owner
+			if (!sendTransform && stateBuffer != nullptr && stateBuffer[0] != nullptr)
 			{
 				sendState(stateBuffer[0]);
 			}
@@ -743,7 +812,7 @@ void USmoothSync::TickComponent(float DeltaTime, ELevelTick TickType, FActorComp
 		adjustOwnerTime();
 		applyInterpolationOrExtrapolation();
 	}
-	else // Send out Transform if we are should send Transform.
+	else // Send out Transform if we should send Transform.
 	{
 		sendState();
 	}
@@ -758,9 +827,36 @@ void USmoothSync::TickComponent(float DeltaTime, ELevelTick TickType, FActorComp
 	{
 		rotationLastFrame = getRotation();
 	}
+	linearVelocityLastFrame = getLinearVelocity();
+	angularVelocityLastFrame = getAngularVelocity();
+
 	// Reset back to default bools.
 	resetFlags();
 }
+
+/// <summary>Get the Controller that owns realObjectToSync, if any.</summary>
+/// <remarks>
+/// Uses GetOwner() to travel up the ownership chain until either a Controller is found or the root object is reached.
+/// If no Controller is found, returns nullptr.
+/// </remarks>
+AController* USmoothSync::GetOwningController()
+{
+	// Find the owning controller, if any
+	AController* owningController = nullptr;
+	AActor* owner = realObjectToSync;
+	do
+	{
+		if (AController* controller = Cast<AController>(owner))
+		{
+			owningController = controller;
+			break;
+		}
+		owner = owner->GetOwner();
+	} while (owner != nullptr);
+
+	return owningController;
+}
+
 
 /// <summary>Used to turn Smooth Sync on and off. True to enable Smooth Sync. False to disable Smooth Sync.</summary>
 ///	<remarks>Will automatically send RPCs across the network. Is meant to be called on the owned version of the Actor.</remarks>
@@ -806,7 +902,13 @@ bool USmoothSync::shouldSendTransform()
 	{
 		if (APawn* pawn = Cast<APawn>(GetOwner()))
 		{
-			if (pawn != NULL && !pawn->IsLocallyControlled() && pawn->IsControlled())
+			bool isPawnControlled = false;
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION == 23
+			isPawnControlled = pawn->IsControlled();
+#else
+			isPawnControlled = pawn->IsPawnControlled();
+#endif
+			if (pawn != nullptr && !pawn->IsLocallyControlled() && isPawnControlled)
 			{
 				return false;
 			}
@@ -844,7 +946,7 @@ bool USmoothSync::shouldSendTransform()
 	{
 		if (APawn* pawn = Cast<APawn>(GetOwner()))
 		{
-			if (pawn != NULL && pawn->IsLocallyControlled())
+			if (pawn != nullptr && pawn->IsLocallyControlled())
 			{
 				return true;
 			}
@@ -949,35 +1051,9 @@ void USmoothSync::sendState(SmoothState* stateToSend)
 		forceStateSendNextFrame();
 	}
 
-	bool canSyncVelocity = isSimulatingPhysics || characterMovementComponent != nullptr || movementComponent != nullptr;
-	if (canSyncVelocity && syncVelocity != SyncMode::NONE)
-	{
-		// If positition has just stopped changing make sure to send one more state with the same position
-		// as the previous state. Otherwise extrapolation may use the difference in position between the two states
-		// as velocity which we don't want to happen when position isn't actually changing.
-		if (samePositionSentCount == 1)
-		{
-			sendingTempState->position = lastPositionWhenStateWasSent;
-			forceStateSendNextFrame();
-		}
-	}
-
-	bool canSyncAngularVelocity = isSimulatingPhysics;
-	if (canSyncVelocity && syncVelocity != SyncMode::NONE)
-	{
-		// If rotation has just stopped changing make sure to send one more state with the same rotation
-		// as the previous state. Otherwise extrapolation may use the difference in rotations between the two states
-		// as angular velocity which we don't want to happen when rotation isn't actually changing.
-		if (sameRotationSentCount == 1)
-		{
-			sendingTempState->rotation = lastRotationWhenStateWasSent;
-			forceStateSendNextFrame();
-		}
-	}
-
 	// If hasn't been long enough since the last send(and we aren't forcing a state send), return and don't send out.
 	if (UGameplayStatics::GetRealTimeSeconds(GetOwner()->GetWorld()) - lastTimeStateWasSent < GetNetworkSendInterval() && !forceStateSend) return;
-
+	
 	// Checks the core variables to see if we should be sending them out.
 	sendPosition = shouldSendPosition();
 	sendRotation = shouldSendRotation();
@@ -987,6 +1063,12 @@ void USmoothSync::sendState(SmoothState* stateToSend)
 
 	// Check that at least one variable has changed that we want to sync.
 	if (!sendPosition && !sendRotation && !sendScale && !sendVelocity && !sendAngularVelocity && !sendMovementMode) return;
+
+	if (alwaysSendMovementMode)
+	{
+		// If we are sending anything, send movement mode
+		sendMovementMode = true;
+	}
 
 	bool samePositionAsLastSend = sameVector(getPosition(), lastPositionWhenStateWasSent, sendPositionThreshold);
 	if (samePositionAsLastSend) samePositionSentCount++;
@@ -1270,6 +1352,11 @@ void USmoothSync::SerializeState(SmoothState *sendingState)
 
 	if (realObjectToSync->GetWorld()->IsServer())
 	{
+		// Only the server sends out owner information.
+		if (syncOwnershipChange)
+		{
+			copyToBuffer(ownerChangeIndicator);
+		}
 		ServerSendsTransformToEveryone(sendingCharArray);
 	}
 	else
@@ -1295,7 +1382,7 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 	bool shouldSetPositionAndRotation = false;
 
 	// The target playback time
-	float interpolationTime = ownerTime - interpolationBackTime;
+	interpolationTime = ownerTime - interpolationBackTime;
 
 	// Use interpolation if the target playback time is present in the buffer.
 	if (stateCount > 1 && stateBuffer[0]->ownerTimestamp > interpolationTime)
@@ -1312,7 +1399,7 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 		extrapolatedLastFrame = false;
 	}
 	// The newest state is too old, we'll have to use extrapolation.
-	else
+	else 
 	{
 		bool success = extrapolate(interpolationTime, targetTempState, shouldSetPositionAndRotation);
 		extrapolatedLastFrame = true;
@@ -1371,7 +1458,7 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 			// If we want to use either of these variables, we need to calculate the angle difference.
 			if (rotationSnapThreshold != 0 || receivedRotationThreshold != 0)
 			{
-				if (realComponentToSync != NULL)
+				if (realComponentToSync != nullptr)
 				{
 					angleDifference = realComponentToSync->GetComponentRotation().Quaternion().AngularDistance(targetTempState->rotation);
 				}
@@ -1526,14 +1613,14 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 /// <summary>
 /// Interpolate between two States from the stateBuffer in order calculate the targetState.
 /// </summary>
-/// <param name="interpolationTime">The target time</param>
-void USmoothSync::interpolate(float interpolationTime, SmoothState *targetState)
+/// <param name="interpolationTimeLocal">The target time</param>
+void USmoothSync::interpolate(float interpolationTimeLocal, SmoothState *targetState)
 {
 	// Go through buffer and find correct SmoothState to start at.
 	int stateIndex = 0;
 	for (; stateIndex < stateCount; stateIndex++)
 	{
-		if (stateBuffer[stateIndex]->ownerTimestamp <= interpolationTime) break;
+		if (stateBuffer[stateIndex]->ownerTimestamp <= interpolationTimeLocal) break;
 	}
 
 	if (stateIndex == stateCount)
@@ -1548,9 +1635,13 @@ void USmoothSync::interpolate(float interpolationTime, SmoothState *targetState)
 	SmoothState *start = stateBuffer[stateIndex];
 
 	// Calculate how far between the two States we should be.
-	float t = (interpolationTime - start->ownerTimestamp) / (end->ownerTimestamp - start->ownerTimestamp);
+	float t = 1;
+	if (end->ownerTimestamp != start->ownerTimestamp) // A not so pretty fix for having two States with same ownerTimestamp.
+	{
+		t = (interpolationTimeLocal - start->ownerTimestamp) / (end->ownerTimestamp - start->ownerTimestamp);
+	}
 
-	shouldTeleport(start, end, interpolationTime, &t);
+	shouldTeleport(start, end, interpolationTimeLocal, &t);
 
 	// Interpolate between the States to get the target SmoothState.
 	targetState->Lerp(targetState, start, end, t);
@@ -1559,9 +1650,9 @@ void USmoothSync::interpolate(float interpolationTime, SmoothState *targetState)
 /// <summary>
 /// Attempt to extrapolate from the newest SmoothState in the buffer
 /// </summary>
-/// <param name="interpolationTime">The target time</param>
+/// <param name="interpolationTimeLocal">The target time</param>
 /// <returns>true on success, false if interpolationTime is more than extrapolationLength in the future</returns>
-bool USmoothSync::extrapolate(float interpolationTime, SmoothState *targetState, bool& shouldSetPositionAndRotation)
+bool USmoothSync::extrapolate(float interpolationTimeLocal, SmoothState *targetState, bool& shouldSetPositionAndRotation)
 {
 	// If we don't want to extrapolate, don't.
 	if (extrapolationMode == ExtrapolationMode::NONE) return false;
@@ -1591,7 +1682,7 @@ bool USmoothSync::extrapolate(float interpolationTime, SmoothState *targetState,
 	float timeDif = 0;
 	if (timeSpentExtrapolating == 0)
 	{
-		timeDif = interpolationTime - targetState->ownerTimestamp;
+		timeDif = interpolationTimeLocal - targetState->ownerTimestamp;
 	}
 	else
 	{
@@ -1611,23 +1702,42 @@ bool USmoothSync::extrapolate(float interpolationTime, SmoothState *targetState,
 	{
 		// Determines velocities based on previous State. Used on non-rigidbodies and when not syncing velocity 
 		// to save bandwidth. This is less accurate than syncing velocity for rigidbodies. 
-		if (stateCount >= 2 && !stateBuffer[0]->atPositionalRest)
+		if (stateCount >= 2)
 		{
-			bool hasVelocitySource = isSimulatingPhysics || characterMovementComponent != nullptr || movementComponent != nullptr;
-			if (!hasVelocitySource || syncVelocity == SyncMode::NONE)
+			if (!stateBuffer[0]->atPositionalRest)
 			{
-				FVector latestPosition = stateBuffer[0]->rebasedPosition(localOrigin);
-				FVector previousPosition = stateBuffer[1]->rebasedPosition(localOrigin);
-				targetState->velocity = (latestPosition - previousPosition) / (stateBuffer[0]->ownerTimestamp - stateBuffer[1]->ownerTimestamp);
+				bool hasVelocitySource = isSimulatingPhysics || characterMovementComponent != nullptr || movementComponent != nullptr;
+				if (!hasVelocitySource || syncVelocity == SyncMode::NONE)
+				{
+					FVector latestPosition = stateBuffer[0]->rebasedPosition(localOrigin);
+					FVector previousPosition = stateBuffer[1]->rebasedPosition(localOrigin);
+					if (stateBuffer[0]->ownerTimestamp == stateBuffer[1]->ownerTimestamp)
+					{
+						targetState->velocity = linearVelocityLastFrame;
+					}
+					else
+					{
+						targetState->velocity = (latestPosition - previousPosition) / (stateBuffer[0]->ownerTimestamp - stateBuffer[1]->ownerTimestamp);
+					}
+				}
 			}
-
-			bool hasAngularVelocitySource = isSimulatingPhysics;
-			if (!hasAngularVelocitySource || syncAngularVelocity == SyncMode::NONE)
-			{				
-				FQuat DeltaRot = stateBuffer[1]->rotation * stateBuffer[0]->rotation.Inverse();
-				FVector eulerRot = DeltaRot.Euler();
-				eulerRot.Z *= -1;
-				targetState->angularVelocity = eulerRot / (stateBuffer[0]->ownerTimestamp - stateBuffer[1]->ownerTimestamp);
+			if (!stateBuffer[0]->atRotationalRest)
+			{
+				bool hasAngularVelocitySource = isSimulatingPhysics;
+				if (!hasAngularVelocitySource || syncAngularVelocity == SyncMode::NONE)
+				{
+					FQuat DeltaRot = stateBuffer[1]->rotation * stateBuffer[0]->rotation.Inverse();
+					FVector eulerRot = DeltaRot.Euler();
+					eulerRot.Z *= -1;
+					if (stateBuffer[0]->ownerTimestamp == stateBuffer[1]->ownerTimestamp)
+					{
+						targetState->velocity = angularVelocityLastFrame;
+					}
+					else
+					{
+						targetState->angularVelocity = eulerRot / (stateBuffer[0]->ownerTimestamp - stateBuffer[1]->ownerTimestamp);
+					}
+				}
 			}
 		}
 	}
@@ -1684,10 +1794,10 @@ bool USmoothSync::extrapolate(float interpolationTime, SmoothState *targetState,
 
 	return true;
 }
-void USmoothSync::shouldTeleport(SmoothState *start, SmoothState *end, float interpolationTime, float *t)
+void USmoothSync::shouldTeleport(SmoothState *start, SmoothState *end, float interpolationTimeLocal, float *t)
 {
-	// If the interpolationTime is further back than the start State time and start State is a teleport, then teleport.
-	if (start->ownerTimestamp > interpolationTime && start->teleport && stateCount == 2)
+	// If the interpolationTimeLocal is further back than the start State time and start State is a teleport, then teleport.
+	if (start->ownerTimestamp > interpolationTimeLocal && start->teleport && stateCount == 2)
 	{
 		// Because we are further back than the Start state, the Start state is our end State.
 		end = start;
@@ -1723,51 +1833,78 @@ void USmoothSync::shouldTeleport(SmoothState *start, SmoothState *end, float int
 /// <summary>Get position of object.</summary>
 FVector USmoothSync::getPosition()
 {
-	if (realComponentToSync != NULL)
+	if (realComponentToSync != nullptr)
 	{
-		return realComponentToSync->RelativeLocation;
+		FVector relative;
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION == 23
+		relative = realComponentToSync->RelativeLocation;
+#else
+		relative = realComponentToSync->GetRelativeLocation();
+#endif
+		return relative;
 	}
-	else if (realObjectToSync->GetAttachParentActor())
+	else if (realObjectToSync != nullptr && realObjectToSync->GetAttachParentActor())
 	{
 		return realObjectToSync->GetTransform().GetRelativeTransform(realObjectToSync->GetAttachParentActor()->GetActorTransform()).GetLocation();
 	}
-	else
+	else if (realObjectToSync != nullptr)
 	{
 		return realObjectToSync->GetActorLocation();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("realComponentToSync AND realObjectToSync are NULL. Cannot getPosition()."));
+		return lastPositionWhenStateWasSent;
 	}
 }
 /// <summary>Get rotation of object.</summary>
 FQuat USmoothSync::getRotation()
 {
-	if (realComponentToSync != NULL)
+	if (realComponentToSync != nullptr)
 	{
 		return realComponentToSync->GetComponentQuat();
 	}
-	else if (realObjectToSync->GetAttachParentActor())
+	else if (realObjectToSync != nullptr && realObjectToSync->GetAttachParentActor())
 	{
 		return realObjectToSync->GetTransform().GetRelativeTransform(realObjectToSync->GetAttachParentActor()->GetActorTransform()).GetRotation();
 	}
-	else
+	else if (realObjectToSync != nullptr)
 	{
 		return realObjectToSync->GetActorQuat();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("realComponentToSync AND realObjectToSync are NULL. Cannot getRotation()."));
+		return lastRotationWhenStateWasSent;
 	}
 }
 /// <summary>Get scale of object.</summary>
 FVector USmoothSync::getScale()
 {
-	if (realComponentToSync != NULL)
+	if (realComponentToSync != nullptr)
 	{
-		return realComponentToSync->RelativeScale3D;
+		FVector relative;
+#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION == 23
+		relative = realComponentToSync->RelativeScale3D;
+#else
+		relative = realComponentToSync->GetRelativeScale3D();
+#endif
+		return relative;
+	}
+	else if (realObjectToSync != nullptr)
+	{
+		return realObjectToSync->GetActorRelativeScale3D();
 	}
 	else
 	{
-		return realObjectToSync->GetActorRelativeScale3D();
+		UE_LOG(LogTemp, Warning, TEXT("realComponentToSync AND realObjectToSync are NULL. Cannot getScale()."));
+		return lastScaleWhenStateWasSent;
 	}
 }
 /// <summary>Set scale of object.</summary>
 FVector USmoothSync::getLinearVelocity()
 {
-	if (isSimulatingPhysics)
+	if (isSimulatingPhysics && primitiveComponent != nullptr)
 	{
 		return primitiveComponent->GetPhysicsLinearVelocity();
 	}
@@ -1799,51 +1936,63 @@ FVector USmoothSync::getAngularVelocity()
 /// <summary>Set position of object.</summary>
 void USmoothSync::setPosition(FVector position)
 {
-	if (realComponentToSync != NULL)
+	if (realComponentToSync != nullptr)
 	{
 		realComponentToSync->SetRelativeLocation(position, false, 0, ETeleportType::TeleportPhysics);
 	}
-	else if (realObjectToSync->GetAttachParentActor())
+	else if (realObjectToSync != nullptr && realObjectToSync->GetAttachParentActor())
 	{
 		realObjectToSync->SetActorRelativeLocation(position, false, 0, ETeleportType::TeleportPhysics);
 	}
-	else
+	else if (realObjectToSync != nullptr)
 	{
 		realObjectToSync->SetActorLocation(position, false, 0, ETeleportType::TeleportPhysics);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("realComponentToSync AND realObjectToSync are NULL. Cannot setPosition()."));
 	}
 }
 /// <summary>Set rotation of object.</summary>
 void USmoothSync::setRotation(const FQuat &rotation)
 {
-	if (realComponentToSync != NULL)
+	if (realComponentToSync != nullptr)
 	{
 		realComponentToSync->SetWorldRotation(rotation, false, NULL, ETeleportType::TeleportPhysics);//->SetRelativeRotation(rotation);
 	}
-	else if (realObjectToSync->GetAttachParentActor())
+	else if (realObjectToSync != nullptr && realObjectToSync->GetAttachParentActor())
 	{
 		realObjectToSync->SetActorRelativeRotation(rotation, false, NULL, ETeleportType::TeleportPhysics);
 	}
-	else
+	else if (realObjectToSync != nullptr)
 	{
 		realObjectToSync->SetActorRotation(rotation, ETeleportType::TeleportPhysics);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("realComponentToSync AND realObjectToSync are NULL. Cannot setRotation()."));
 	}
 }
 /// <summary>Set scale of object.</summary>
 void USmoothSync::setScale(FVector scale)
 {
-	if (realComponentToSync != NULL)
+	if (realComponentToSync != nullptr)
 	{
 		realComponentToSync->SetRelativeScale3D(scale);
 	}
-	else
+	else if (realObjectToSync != nullptr)
 	{
 		realObjectToSync->SetActorRelativeScale3D(scale);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("realComponentToSync AND realObjectToSync are NULL. Cannot setScale()."));
 	}
 }
 /// <summary>Set scale of object.</summary>
 void USmoothSync::setLinearVelocity(FVector linearVelocity)
 {
-	if (isSimulatingPhysics)
+	if (isSimulatingPhysics && primitiveComponent != nullptr)
 	{
 		primitiveComponent->SetPhysicsLinearVelocity(FVector(linearVelocity));
 	}
@@ -1859,7 +2008,7 @@ void USmoothSync::setLinearVelocity(FVector linearVelocity)
 /// <summary>Set scale of object.</summary>
 void USmoothSync::setAngularVelocity(FVector angularVelocity)
 {
-	if (isSimulatingPhysics)
+	if (isSimulatingPhysics && primitiveComponent != nullptr)
 	{
 		primitiveComponent->SetPhysicsAngularVelocityInDegrees(FVector(angularVelocity));
 	}
@@ -1874,27 +2023,86 @@ void USmoothSync::addState(SmoothState *state)
 {
 	if (stateCount > 1 && state->ownerTimestamp <= stateBuffer[0]->ownerTimestamp)
 	{
-		// This state arrived out of order and we already have a newer state.
-		//UE_LOG(LogTemp, Warning, TEXT("Received state out of order for"));
-		return;
+		// State was received out of order, this is ok, we just don't use it to update owner time offset since it is old
 	}
-
-	// Store the latest owner time offset
-	AddOwnerTimeOffset(state->ownerTimestamp);
-
-	// Shift the buffer
-	int stateBufferLength = std::max(calculatedStateBufferSize, 30);
-	if (stateBuffer[stateBufferLength - 1] != NULL)
+	else
 	{
-		delete stateBuffer[stateBufferLength - 1];
-	}
-	for (int i = stateBufferLength - 1; i >= 1; i--)
-	{
-		stateBuffer[i] = stateBuffer[i - 1];
+		// Store the latest owner time offset
+		AddOwnerTimeOffset(state->ownerTimestamp);
 	}
 
-	// Add the new SmoothState at the front of the buffer.
-	stateBuffer[0] = state;
+	int stateBufferLength = FMath::Max(calculatedStateBufferSize, 30);
+	int insertPos = 0;
+	if (stateCount > 0)
+	{
+		// Find where the incoming state goes in the buffer based on ownerTimestamp
+		for (; insertPos < stateCount; insertPos++)
+		{
+			if (stateBuffer[insertPos] == nullptr || state->ownerTimestamp >= stateBuffer[insertPos]->ownerTimestamp)
+			{
+				break;
+			}
+		}
+
+		// New state is older than everything and buffer is full, just drop it
+		if (insertPos == stateBufferLength)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Received very old state. Dropping it. If this happens while changing possession consider enabling 'Sync Ownership Change'"));
+			return;
+		}
+
+		delete stateBuffer[FMath::Min(stateCount, stateBufferLength - 1)];
+
+		// Shift all states after the insertPos to make room
+		for (int i = FMath::Min(stateCount, stateBufferLength - 1); i > insertPos; i--)
+		{
+			stateBuffer[i] = stateBuffer[i - 1];
+		}
+
+		if (!state->wasMovementModeReceived)
+		{
+			// Use the movement mode from the previous state if this state has no movement mode
+			if (insertPos + 1 < stateCount && stateBuffer[insertPos + 1] != nullptr)
+			{
+				state->movementMode = stateBuffer[insertPos + 1]->movementMode;
+			}
+			else
+			{
+				state->movementMode = 0;
+			}
+		}
+		else
+		{
+			// This state does have a movement mode, so if there are newer states we may need to update their movement mode
+			if (insertPos != 0)
+			{
+				for (int i = insertPos - 1; i >= 0; i--)
+				{
+					// Only update newer states that didn't receive their own movement mode
+					if (!stateBuffer[i]->wasMovementModeReceived)
+					{
+						stateBuffer[i]->movementMode = state->movementMode;
+
+						if (i == 0)
+						{
+							// If we change the movement mode of the newest state we need to change targetTempState
+							// as well because this is the state extrapolation is using.
+							// If we don't update this the movement mode will not be corrected until a new state is received
+							targetTempState->movementMode = state->movementMode;
+						}
+					}
+					else
+					{
+						// As soon as we find a newer state that received a movement mode we can stop
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// Insert the incoming state into the buffer
+	stateBuffer[insertPos] = state;
 
 	// Keep track of how many States are in the buffer.	
 	stateCount = FMath::Min(stateCount + 1, stateBufferLength);
@@ -1909,6 +2117,18 @@ void USmoothSync::stopLerping()
 /// <summary>Effectively clear the state buffer. Used for teleporting and ownership changes.</summary>
 void USmoothSync::clearBuffer()
 {
+	if (stateBuffer != nullptr)
+	{
+		for (int i = 0; i < FMath::Max(calculatedStateBufferSize, 30); i++)
+		{
+			if (stateBuffer[i] != nullptr)
+			{
+				delete(stateBuffer[i]);
+				stateBuffer[i] = nullptr;
+			}
+		}
+	}
+
 	stateCount = 0;
 }
 
@@ -1943,7 +2163,7 @@ void USmoothSync::teleport()
 /// </summary>
 void USmoothSync::addTeleportState(SmoothState *teleportState)
 {
-	int stateBufferLength = std::max(calculatedStateBufferSize, 30);
+	int stateBufferLength = FMath::Max(calculatedStateBufferSize, 30);
 
 	// If the teleport State is the newest received State.
 	if (stateCount == 0 || teleportState->ownerTimestamp >= stateBuffer[0]->ownerTimestamp)
@@ -1961,6 +2181,7 @@ void USmoothSync::addTeleportState(SmoothState *teleportState)
 		{
 			SmoothState *newTeleportState = new SmoothState();
 			newTeleportState->copyFromState(teleportState);
+			delete stateBuffer[1];
 			stateBuffer[1] = newTeleportState;
 			stateCount = FMath::Min(stateCount + 1, stateBufferLength);
 		}
@@ -1970,13 +2191,18 @@ void USmoothSync::addTeleportState(SmoothState *teleportState)
 	{
 		for (int i = stateBufferLength - 2; i >= 0; i--)
 		{
+			if (stateBuffer[i] == nullptr) continue;
+
 			if (stateBuffer[i]->ownerTimestamp > teleportState->ownerTimestamp)
 			{
+				delete stateBuffer[stateBufferLength - 1];
+
 				// Shift the buffer from where the teleport State should be and add the new State. 
 				for (int j = stateBufferLength - 1; j > i + 1; j--)
 				{
 					stateBuffer[j] = stateBuffer[j - 1];
 				}
+
 				stateBuffer[i + 1] = teleportState;
 				break;
 			}
@@ -2013,10 +2239,9 @@ bool USmoothSync::sameVector(FVector one, FVector two, float threshold)
 /// </remarks>
 bool USmoothSync::shouldSendPosition()
 {
-	bool samePositionAsLastSend = sameVector(getPosition(), lastPositionWhenStateWasSent, sendPositionThreshold);
 	if (syncPosition != SyncMode::NONE &&
 		(forceStateSend ||
-		(samePositionSentCount < 2 && restStatePosition != RestState::AT_REST)))
+		(samePositionSentCount < 4 && restStatePosition != RestState::AT_REST)))
 	{
 		return true;
 	}
@@ -2037,8 +2262,7 @@ bool USmoothSync::shouldSendRotation()
 {
 	if (syncRotation != SyncMode::NONE &&
 		(forceStateSend ||
-		(!sameVector(getRotation().Euler(), lastRotationWhenStateWasSent.Euler(), sendRotationThreshold) &&
-			restStateRotation != RestState::AT_REST)))
+		(sameRotationCount < 4 && restStateRotation != RestState::AT_REST)))
 	{
 		return true;
 	}
@@ -2408,7 +2632,7 @@ float USmoothSync::GetNetworkSendInterval()
 /// </summary>
 void USmoothSync::adjustOwnerTime()
 {
-	if (stateBuffer[0] == NULL) return;
+	if (stateBuffer[0] == nullptr) return;
 #ifdef TimeSync
 	if (enableLagCompensation)
 	{

@@ -42,6 +42,7 @@ public:
 	bool teleport = false;
 	bool atPositionalRest = false;
 	bool atRotationalRest = false;
+	bool wasMovementModeReceived = false;
 
 	SmoothState();
 	~SmoothState();

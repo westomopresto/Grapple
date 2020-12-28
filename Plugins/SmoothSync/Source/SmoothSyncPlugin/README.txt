@@ -1,4 +1,4 @@
-Plugin Version: 1.29
+Plugin Version: 1.30
 
 # Smooth Sync
 

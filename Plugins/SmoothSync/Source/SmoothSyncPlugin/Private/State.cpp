@@ -110,6 +110,7 @@ void SmoothState::copyFromState(SmoothState *state)
 	velocity = state->velocity;
 	angularVelocity = state->angularVelocity;
 	movementMode = state->movementMode;
+	wasMovementModeReceived = state->wasMovementModeReceived;
 	teleport = state->teleport;
 	atPositionalRest = state->atPositionalRest;
 	atRotationalRest = state->atRotationalRest;
