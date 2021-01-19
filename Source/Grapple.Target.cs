@@ -10,5 +10,8 @@ public class GrappleTarget : TargetRules
 		Type = TargetType.Game;
         bUsesSteam = true;
         ExtraModuleNames.AddRange( new string[] { "Grapple" } );
+        GlobalDefinitions.Add("UE4_PROJECT_STEAMGAMEDESC=\"Fadeout Underground\"");
+        GlobalDefinitions.Add("UE4_PROJECT_STEAMPRODUCTNAME=\"fadeout\"");
+        GlobalDefinitions.Add("UE4_PROJECT_STEAMGAMEDIR=\"fadeout\"");
     }
 }

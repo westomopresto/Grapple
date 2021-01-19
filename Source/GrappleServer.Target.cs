@@ -11,5 +11,8 @@ public class GrappleServerTarget : TargetRules
         bUsesSteam = true;
         bUseLoggingInShipping = true;
         ExtraModuleNames.AddRange( new string[] { "Grapple" } );
+        GlobalDefinitions.Add("UE4_PROJECT_STEAMGAMEDESC=\"Fadeout Dedicated Server\"");
+        GlobalDefinitions.Add("UE4_PROJECT_STEAMPRODUCTNAME=\"fadeout\"");
+        GlobalDefinitions.Add("UE4_PROJECT_STEAMGAMEDIR=\"fadeout\"");
     }
 }
