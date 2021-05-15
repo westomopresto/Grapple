@@ -16,6 +16,7 @@
 #include "STipWidget.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/Layout/SBorder.h"
+#include "SLoadingCompleteText.h"
 
 
 void SCenterLayout::Construct(const FArguments& InArgs, const FALoadingScreenSettings& Settings, const FCenterLayoutSettings& LayoutSettings)
@@ -105,6 +106,18 @@ void SCenterLayout::Construct(const FArguments& InArgs, const FALoadingScreenSet
 						]						
 					]					
 				]
+			];
+	}
+
+	// Construct loading complete text if enable
+	if (Settings.bShowLoadingCompleteText)
+	{
+		Root->AddSlot()
+			.VAlign(Settings.LoadingCompleteTextSettings.Alignment.VerticalAlignment)
+			.HAlign(Settings.LoadingCompleteTextSettings.Alignment.HorizontalAlignment)
+			.Padding(Settings.LoadingCompleteTextSettings.Padding)
+			[
+				SNew(SLoadingCompleteText, Settings.LoadingCompleteTextSettings)
 			];
 	}
 

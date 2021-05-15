@@ -16,6 +16,7 @@
 #include "SVerticalLoadingWidget.h"
 #include "SBackgroundWidget.h"
 #include "STipWidget.h"
+#include "SLoadingCompleteText.h"
 
 void SDualSidebarLayout::Construct(const FArguments& InArgs, const FALoadingScreenSettings& Settings, const FDualSidebarLayoutSettings& LayoutSettings)
 {
@@ -149,6 +150,18 @@ void SDualSidebarLayout::Construct(const FArguments& InArgs, const FALoadingScre
 				]
 			]
 		];
+	}
+
+	// Construct loading complete text if enable
+	if (Settings.bShowLoadingCompleteText)
+	{
+		Root->AddSlot()
+			.VAlign(Settings.LoadingCompleteTextSettings.Alignment.VerticalAlignment)
+			.HAlign(Settings.LoadingCompleteTextSettings.Alignment.HorizontalAlignment)
+			.Padding(Settings.LoadingCompleteTextSettings.Padding)
+			[
+				SNew(SLoadingCompleteText, Settings.LoadingCompleteTextSettings)
+			];
 	}
 
 	// Add root to this widget
