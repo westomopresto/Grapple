@@ -71,10 +71,6 @@ void USmoothSync::BeginPlay()
 		if (primitiveComponent && primitiveComponent->IsSimulatingPhysics())
 		{
 			isSimulatingPhysics = true;
-			//if (realObjectToSync->GetOwner() != UGameplayStatics::GetPlayerController(GetWorld(), 0))
-			//{
-			//	//primitiveComponent->SetEnableGravity(false);
-			//}
 		}
 	}
 
@@ -764,6 +760,8 @@ void USmoothSync::TickComponent(float DeltaTime, ELevelTick TickType, FActorComp
 				{
 					ownerChangeIndicator = 1;
 				}
+				// This fixes some issues with old positions getting sent on unpossess because of some weird at-rest stuff
+				ResetAtRestState();
 			}
 			owningControllerLastFrame = owningController;
 		}
@@ -803,8 +801,25 @@ void USmoothSync::TickComponent(float DeltaTime, ELevelTick TickType, FActorComp
 			{
 				sendState(stateBuffer[0]);
 			}
+			// This fixes some issues with old positions getting sent because of some weird at-rest stuff
+			ResetAtRestState();
 		}
 	}
+
+	bool isAttached = realObjectToSync->GetAttachParentActor() != nullptr;
+	if (isAttached != wasAttachedLastTick)
+	{
+		if (!sendTransform)
+		{
+			clearBuffer();
+		}
+		else
+		{
+			// This fixes some issues with old positions getting sent on detach because of some weird at-rest stuff
+			ResetAtRestState();
+		}
+	}
+	wasAttachedLastTick = isAttached;
 
 	// Set the interpolated / extrapolated Transforms and Rigidbodies if we shouldn't send Transform.
 	if (!sendTransform)
@@ -832,6 +847,21 @@ void USmoothSync::TickComponent(float DeltaTime, ELevelTick TickType, FActorComp
 
 	// Reset back to default bools.
 	resetFlags();
+}
+
+void USmoothSync::ResetAtRestState()
+{
+	// This fixes some issues with old positions getting sent on detach because of some weird at-rest stuff
+	positionLastFrame = getPosition();
+	rotationLastFrame = getRotation();
+	lastPositionWhenStateWasSent = getPosition();
+	lastRotationWhenStateWasSent = getRotation();
+	samePositionCount = 0;
+	sameRotationCount = 0;
+	samePositionSentCount = 0;
+	sameRotationSentCount = 0;
+	restStatePosition = RestState::MOVING;
+	restStateRotation = RestState::MOVING;
 }
 
 /// <summary>Get the Controller that owns realObjectToSync, if any.</summary>
@@ -922,7 +952,7 @@ bool USmoothSync::shouldSendTransform()
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				APlayerController* PC = Cast<APlayerController>(*Iterator);
-				if (realObjectToSync->GetOwner() == PC)
+				if (GetOwningController() == PC)
 				{
 					return false;
 				}
@@ -933,8 +963,8 @@ bool USmoothSync::shouldSendTransform()
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				APlayerController* PC = Cast<APlayerController>(*Iterator);
-				if (realObjectToSync->GetOwner() == PC &&
-					realObjectToSync->GetOwner() != UGameplayStatics::GetPlayerController(GetWorld(), 0))
+				if (GetOwningController() == PC &&
+					GetOwningController() != UGameplayStatics::GetPlayerController(GetWorld(), 0))
 				{
 					return false;
 				}
@@ -952,7 +982,7 @@ bool USmoothSync::shouldSendTransform()
 			}
 		}
 		else if (realObjectToSync != nullptr &&
-			realObjectToSync->GetOwner() == UGameplayStatics::GetPlayerController(GetWorld(), 0))
+			GetOwningController() == UGameplayStatics::GetPlayerController(GetWorld(), 0))
 		{
 			return true;
 		}
@@ -963,85 +993,82 @@ bool USmoothSync::shouldSendTransform()
 
 void USmoothSync::sendState(SmoothState* stateToSend)
 {
-	if (extrapolationMode != ExtrapolationMode::NONE)
+	// Same position logic.
+	if (syncPosition != SyncMode::NONE)
 	{
-		// Same position logic.
-		if (syncPosition != SyncMode::NONE)
+		if (sameVector((FVector)originLastFrame + positionLastFrame, (FVector)GetWorld()->OriginLocation + getPosition(), atRestPositionThreshold))
 		{
-			if (sameVector((FVector)originLastFrame + positionLastFrame, (FVector)GetWorld()->OriginLocation + getPosition(), atRestPositionThreshold))
+			if (restStatePosition != RestState::AT_REST)
 			{
-				if (restStatePosition != RestState::AT_REST)
-				{
-					samePositionCount += updatedDeltaTime;
-				}
-				if (samePositionCount >= atRestThresholdCount)
-				{
-					samePositionCount = 0;
-					restStatePosition = RestState::AT_REST;
-					forceStateSendNextFrame();
-				}
+				samePositionCount += updatedDeltaTime;
 			}
-			else
+			if (samePositionCount >= atRestThresholdCount)
 			{
-				if (restStatePosition == RestState::AT_REST && getPosition() != latestTeleportedFromPosition)
-				{
-					restStatePosition = RestState::JUST_STARTED_MOVING;
-					forceStateSendNextFrame();
-				}
-				else if (restStatePosition == RestState::JUST_STARTED_MOVING)
-				{
-					restStatePosition = RestState::MOVING;
-					//forceStateSendNextFixedUpdate();
-				}
-				else
-				{
-					samePositionCount = 0;
-				}
+				samePositionCount = 0;
+				restStatePosition = RestState::AT_REST;
+				forceStateSendNextFrame();
 			}
 		}
 		else
 		{
-			syncPosition = SyncMode::NONE;
-		}
-		// Same rotation logic.
-		if (syncRotation != SyncMode::NONE)
-		{
-			if (sameVector(rotationLastFrame.Euler(), getRotation().Euler(), atRestRotationThreshold))
+			if (restStatePosition == RestState::AT_REST && getPosition() != latestTeleportedFromPosition)
 			{
-				if (restStateRotation != RestState::AT_REST)
-				{
-					sameRotationCount += updatedDeltaTime;
-				}
+				restStatePosition = RestState::JUST_STARTED_MOVING;
+				forceStateSendNextFrame();
+			}
+			else if (restStatePosition == RestState::JUST_STARTED_MOVING)
+			{
+				restStatePosition = RestState::MOVING;
+				//forceStateSendNextFixedUpdate();
+			}
+			else
+			{
+				samePositionCount = 0;
+			}
+		}
+	}
+	else
+	{
+		syncPosition = SyncMode::NONE;
+	}
+	// Same rotation logic.
+	if (syncRotation != SyncMode::NONE)
+	{
+		if (sameVector(rotationLastFrame.Euler(), getRotation().Euler(), atRestRotationThreshold))
+		{
+			if (restStateRotation != RestState::AT_REST)
+			{
+				sameRotationCount += updatedDeltaTime;
+			}
 
-				if (sameRotationCount >= atRestThresholdCount)
-				{
-					sameRotationCount = 0;
-					restStateRotation = RestState::AT_REST;
-					forceStateSendNextFrame();
-				}
-			}
-			else
+			if (sameRotationCount >= atRestThresholdCount)
 			{
-				if (restStateRotation == RestState::AT_REST && getRotation() != latestTeleportedFromRotation)
-				{
-					restStateRotation = RestState::JUST_STARTED_MOVING;
-					forceStateSendNextFrame();
-				}
-				else if (restStateRotation == RestState::JUST_STARTED_MOVING)
-				{
-					restStateRotation = RestState::MOVING;
-					//forceStateSendNextFixedUpdate();
-				}
-				else
-				{
-					sameRotationCount = 0;
-				}
+				sameRotationCount = 0;
+				restStateRotation = RestState::AT_REST;
+				forceStateSendNextFrame();
 			}
 		}
 		else
 		{
-			syncRotation = SyncMode::NONE;
+			if (restStateRotation == RestState::AT_REST && getRotation() != latestTeleportedFromRotation)
+			{
+				restStateRotation = RestState::JUST_STARTED_MOVING;
+				forceStateSendNextFrame();
+			}
+			else if (restStateRotation == RestState::JUST_STARTED_MOVING)
+			{
+				restStateRotation = RestState::MOVING;
+				//forceStateSendNextFixedUpdate();
+			}
+			else
+			{
+				sameRotationCount = 0;
+			}
 		}
+	}
+	else
+	{
+		syncRotation = SyncMode::NONE;
 	}
 
 	// If Movement Mode (animation) has changed and nothing else has changed, send State regardless of when the last State was sent.
@@ -1053,7 +1080,15 @@ void USmoothSync::sendState(SmoothState* stateToSend)
 
 	// If hasn't been long enough since the last send(and we aren't forcing a state send), return and don't send out.
 	if (UGameplayStatics::GetRealTimeSeconds(GetOwner()->GetWorld()) - lastTimeStateWasSent < GetNetworkSendInterval() && !forceStateSend) return;
-	
+
+	bool samePositionAsLastSend = sameVector(getPosition(), lastPositionWhenStateWasSent, sendPositionThreshold);
+	if (samePositionAsLastSend) samePositionSentCount++;
+	else samePositionSentCount = 0;
+
+	bool sameRotationAsLastSend = sameVector(getRotation().Euler(), lastRotationWhenStateWasSent.Euler(), sendRotationThreshold);
+	if (sameRotationAsLastSend) sameRotationSentCount++;
+	else sameRotationSentCount = 0;
+
 	// Checks the core variables to see if we should be sending them out.
 	sendPosition = shouldSendPosition();
 	sendRotation = shouldSendRotation();
@@ -1070,48 +1105,39 @@ void USmoothSync::sendState(SmoothState* stateToSend)
 		sendMovementMode = true;
 	}
 
-	bool samePositionAsLastSend = sameVector(getPosition(), lastPositionWhenStateWasSent, sendPositionThreshold);
-	if (samePositionAsLastSend) samePositionSentCount++;
-	else samePositionSentCount = 0;
 
-	bool sameRotationAsLastSend = sameVector(getRotation().Euler(), lastRotationWhenStateWasSent.Euler(), sendRotationThreshold);
-	if (sameRotationAsLastSend) sameRotationSentCount++;
-	else sameRotationSentCount = 0;
 
 	if (stateToSend == nullptr)
 	{
 		sendingTempState->copyFromSmoothSync(this);
 
 		// Check if should send rest messages.
-		if (extrapolationMode != ExtrapolationMode::NONE)
-		{
-			if (restStatePosition == RestState::AT_REST) sendAtPositionalRestMessage = true;
-			if (restStateRotation == RestState::AT_REST) sendAtRotationalRestMessage = true;
+		if (restStatePosition == RestState::AT_REST) sendAtPositionalRestMessage = true;
+		if (restStateRotation == RestState::AT_REST) sendAtRotationalRestMessage = true;
 
-			// Send the new State when the object starts moving so we can interpolate correctly.
-			if (restStatePosition == RestState::JUST_STARTED_MOVING)
+		// Send the new State when the object starts moving so we can interpolate correctly.
+		if (restStatePosition == RestState::JUST_STARTED_MOVING)
+		{
+			sendingTempState->position = lastPositionWhenStateWasSent;
+			sendingTempState->origin = lastOriginWhenStateWasSent;
+		}
+		if (restStateRotation == RestState::JUST_STARTED_MOVING)
+		{
+			sendingTempState->rotation = lastRotationWhenStateWasSent;
+		}
+		if (restStatePosition == RestState::JUST_STARTED_MOVING ||
+			restStateRotation == RestState::JUST_STARTED_MOVING)
+		{
+			sendingTempState->ownerTimestamp =
+				UGameplayStatics::GetRealTimeSeconds(GetOwner()->GetWorld()) - GetOwner()->GetWorld()->GetDeltaSeconds();
+			if (restStatePosition != RestState::JUST_STARTED_MOVING)
 			{
-				sendingTempState->position = lastPositionWhenStateWasSent;
-				sendingTempState->origin = lastOriginWhenStateWasSent;
+				sendingTempState->position = positionLastFrame;
+				sendingTempState->origin = originLastFrame;
 			}
-			if (restStateRotation == RestState::JUST_STARTED_MOVING)
+			if (restStateRotation != RestState::JUST_STARTED_MOVING)
 			{
-				sendingTempState->rotation = lastRotationWhenStateWasSent;
-			}
-			if (restStatePosition == RestState::JUST_STARTED_MOVING ||
-				restStateRotation == RestState::JUST_STARTED_MOVING)
-			{
-				sendingTempState->ownerTimestamp =
-					UGameplayStatics::GetRealTimeSeconds(GetOwner()->GetWorld()) - GetOwner()->GetWorld()->GetDeltaSeconds();
-				if (restStatePosition != RestState::JUST_STARTED_MOVING)
-				{
-					sendingTempState->position = positionLastFrame;
-					sendingTempState->origin = originLastFrame;
-				}
-				if (restStateRotation != RestState::JUST_STARTED_MOVING)
-				{
-					sendingTempState->rotation = rotationLastFrame;
-				}
+				sendingTempState->rotation = rotationLastFrame;
 			}
 		}
 
@@ -1413,13 +1439,27 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 	float actualPositionLerpSpeed = positionLerpSpeed;
 	float actualRotationLerpSpeed = rotationLerpSpeed;
 	float actualScaleLerpSpeed = scaleLerpSpeed;
+	bool teleportPosition = false;
+	bool teleportRotation = false;
 
-	if (dontLerp)
+	if (dontEasePosition)
 	{
 		actualPositionLerpSpeed = 1;
+		teleportPosition = true;
+		dontEasePosition = false;
+	}
+
+	if (dontEaseRotation)
+	{
 		actualRotationLerpSpeed = 1;
+		teleportRotation = true;
+		dontEaseRotation = false;
+	}
+
+	if (dontEaseScale)
+	{
 		actualScaleLerpSpeed = 1;
-		dontLerp = false;
+		dontEaseScale = false;
 	}
 
 	// Set position, rotation, scale, velocity, and angular velocity (as long as we didn't try and extrapolate too far).
@@ -1432,7 +1472,7 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 		if (getPosition() != targetTempState->position)
 		{
 			// If we want to use either of these variables, we need to calculate the distance.
-			if (positionSnapThreshold != 0 || receivedPositionThreshold != 0)
+			if (receivedPositionThreshold != 0)
 			{
 				distance = FVector::Distance(getPosition(), targetTempState->rebasedPosition(localOrigin));
 			}
@@ -1456,7 +1496,7 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 		if (getRotation() != targetTempState->rotation)
 		{
 			// If we want to use either of these variables, we need to calculate the angle difference.
-			if (rotationSnapThreshold != 0 || receivedRotationThreshold != 0)
+			if (receivedRotationThreshold != 0)
 			{
 				if (realComponentToSync != nullptr)
 				{
@@ -1482,17 +1522,11 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 			changedRotationEnough = true;
 		}
 
-		bool changedScaleEnough = false;
-		float scaleDistance = 0;
 		// If current scale is different from target scale
+		bool changedScaleEnough = false;
 		if (getScale() != targetTempState->scale)
 		{
 			changedScaleEnough = true;
-			// If we want to use scaleSnapThreshhold, calculate the distance.
-			if (scaleSnapThreshold != 0)
-			{
-				scaleDistance = FVector::Distance(getScale(), targetTempState->scale);
-			}
 		}
 
 		// Set velocity if not extrapolating
@@ -1516,13 +1550,6 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 		{
 			if (changedPositionEnough)
 			{
-				bool shouldTeleport = false;
-				if (distance > positionSnapThreshold)
-				{
-					actualPositionLerpSpeed = 1;
-					shouldTeleport = true;
-				}
-
 				FVector newPosition = getPosition();
 
 				if (isSyncingXPosition())
@@ -1538,19 +1565,13 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 					newPosition.Z = targetTempState->rebasedPosition(localOrigin).Z;
 				}
 
-				setPosition(FMath::Lerp(getPosition(), newPosition, actualPositionLerpSpeed));
+				setPosition(FMath::Lerp(getPosition(), newPosition, actualPositionLerpSpeed), teleportPosition);
 			}
 		}
 		if (syncRotation != SyncMode::NONE && shouldSetPositionAndRotation)
 		{
 			if (changedRotationEnough)
 			{
-				bool shouldTeleport = false;
-				if (angleDifference > rotationSnapThreshold)
-				{
-					actualRotationLerpSpeed = 1;
-					shouldTeleport = true;
-				}
 				FVector newRotation = getRotation().Euler();
 				if (isSyncingXRotation())
 				{
@@ -1565,19 +1586,13 @@ void USmoothSync::applyInterpolationOrExtrapolation()
 					newRotation.Z = targetTempState->rotation.Euler().Z;
 				}
 				FQuat newQuaternion = FQuat::MakeFromEuler(newRotation);
-				setRotation(FMath::Lerp(getRotation(), newQuaternion, actualRotationLerpSpeed));
+				setRotation(FMath::Lerp(getRotation(), newQuaternion, actualRotationLerpSpeed), teleportRotation);
 			}
 		}
 		if (syncScale != SyncMode::NONE)
 		{
 			if (changedScaleEnough)
 			{
-				bool shouldTeleport = false;
-				if (scaleDistance > scaleSnapThreshold)
-				{
-					actualScaleLerpSpeed = 1;
-					shouldTeleport = true;
-				}
 				FVector newScale = getScale();
 				if (isSyncingXScale())
 				{
@@ -1645,6 +1660,37 @@ void USmoothSync::interpolate(float interpolationTimeLocal, SmoothState *targetS
 
 	// Interpolate between the States to get the target SmoothState.
 	targetState->Lerp(targetState, start, end, t);
+
+	// Snap thresholds
+	if (positionSnapThreshold != 0)
+	{
+		float positionDifference = FVector::Distance(end->position, start->position);
+		if (positionDifference > positionSnapThreshold)
+		{
+			targetState->position = end->position;
+		}
+		dontEasePosition = true;
+	}
+
+	if (scaleSnapThreshold != 0)
+	{
+		float scaleDifference = FVector::Distance(end->scale, start->scale);
+		if (scaleDifference > scaleSnapThreshold)
+		{
+			targetState->scale = end->scale;
+		}
+		dontEaseScale = true;
+	}
+
+	if (rotationSnapThreshold != 0)
+	{
+		auto rotationDifference = start->rotation.AngularDistance(end->rotation);
+		if (rotationDifference > rotationSnapThreshold)
+		{
+			targetState->rotation = end->rotation;
+		}
+		dontEaseRotation = true;
+	}
 }
 
 /// <summary>
@@ -1802,7 +1848,7 @@ void USmoothSync::shouldTeleport(SmoothState *start, SmoothState *end, float int
 		// Because we are further back than the Start state, the Start state is our end State.
 		end = start;
 		*t = 1;
-		stopLerping();
+		stopEasing();
 	}
 	// Check if low FPS caused us to skip a teleport State. If yes, teleport.
 	for (int i = 0; i < stateCount; i++)
@@ -1814,7 +1860,7 @@ void USmoothSync::shouldTeleport(SmoothState *start, SmoothState *end, float int
 				if (stateBuffer[j]->teleport == true)
 				{
 					*t = 1;
-					stopLerping();
+					stopEasing();
 				}
 				if (stateBuffer[j] == start) break;
 			}
@@ -1826,7 +1872,7 @@ void USmoothSync::shouldTeleport(SmoothState *start, SmoothState *end, float int
 	if (end->teleport == true)
 	{
 		*t = 1;
-		stopLerping();
+		stopEasing();
 	}
 }
 
@@ -1934,19 +1980,25 @@ FVector USmoothSync::getAngularVelocity()
 	}
 }
 /// <summary>Set position of object.</summary>
-void USmoothSync::setPosition(FVector position)
+void USmoothSync::setPosition(FVector position, bool teleport)
 {
+	ETeleportType type = ETeleportType::None;
+	if (teleport)
+	{
+		type = ETeleportType::TeleportPhysics;
+	}
+
 	if (realComponentToSync != nullptr)
 	{
-		realComponentToSync->SetRelativeLocation(position, false, 0, ETeleportType::TeleportPhysics);
+		realComponentToSync->SetRelativeLocation(position, false, 0, type);
 	}
 	else if (realObjectToSync != nullptr && realObjectToSync->GetAttachParentActor())
 	{
-		realObjectToSync->SetActorRelativeLocation(position, false, 0, ETeleportType::TeleportPhysics);
+		realObjectToSync->SetActorRelativeLocation(position, false, 0, type);
 	}
 	else if (realObjectToSync != nullptr)
 	{
-		realObjectToSync->SetActorLocation(position, false, 0, ETeleportType::TeleportPhysics);
+		realObjectToSync->SetActorLocation(position, false, 0, type);
 	}
 	else
 	{
@@ -1954,19 +2006,25 @@ void USmoothSync::setPosition(FVector position)
 	}
 }
 /// <summary>Set rotation of object.</summary>
-void USmoothSync::setRotation(const FQuat &rotation)
+void USmoothSync::setRotation(const FQuat &rotation, bool teleport)
 {
+	ETeleportType type = ETeleportType::None;
+	if (teleport)
+	{
+		type = ETeleportType::TeleportPhysics;
+	}
+
 	if (realComponentToSync != nullptr)
 	{
-		realComponentToSync->SetWorldRotation(rotation, false, NULL, ETeleportType::TeleportPhysics);//->SetRelativeRotation(rotation);
+		realComponentToSync->SetWorldRotation(rotation, false, NULL, type);
 	}
 	else if (realObjectToSync != nullptr && realObjectToSync->GetAttachParentActor())
 	{
-		realObjectToSync->SetActorRelativeRotation(rotation, false, NULL, ETeleportType::TeleportPhysics);
+		realObjectToSync->SetActorRelativeRotation(rotation, false, NULL, type);
 	}
 	else if (realObjectToSync != nullptr)
 	{
-		realObjectToSync->SetActorRotation(rotation, ETeleportType::TeleportPhysics);
+		realObjectToSync->SetActorRotation(rotation, type);
 	}
 	else
 	{
@@ -2109,9 +2167,11 @@ void USmoothSync::addState(SmoothState *state)
 }
 
 /// <summary>Stop updating the States of non-owned objects so that the object can be teleported.</summary>
-void USmoothSync::stopLerping()
+void USmoothSync::stopEasing()
 {
-	dontLerp = true;
+	dontEasePosition = true;
+	dontEaseRotation = true;
+	dontEaseScale = true;
 }
 
 /// <summary>Effectively clear the state buffer. Used for teleporting and ownership changes.</summary>

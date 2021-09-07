@@ -49,5 +49,8 @@ public class SmoothSyncPlugin : ModuleRules
 				// ... add any modules that your module loads dynamically here ...
 			}
 			);
-	}
+
+        //PublicDependencyModuleNames.Add("TimeSync");
+        //PublicDefinitions.Add("TimeSync");
+    }
 }

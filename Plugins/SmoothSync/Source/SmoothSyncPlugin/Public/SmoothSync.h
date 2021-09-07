@@ -55,6 +55,7 @@ private:
 	
 	int samePositionSentCount = 0;
 	int sameRotationSentCount = 0;
+	bool wasAttachedLastTick = false;
 
 	/// <summary> Used to know when the owner has changed. Not an identifier. </summary>
 	uint8 previousReceivedOwnerInt = 1;
@@ -404,10 +405,20 @@ public:
 	int stateCount = 0;
 
 	/// <summary>
-	/// Used via stopLerping() to 'teleport' a synced object without unwanted lerping.
-	/// Useful for player spawning and whatnot.
+	/// Used via stopEasing() to 'teleport' a synced object without unwanted easing.
+	/// Useful for player spawning and whatnot. Also used for snapping.
 	/// </summary>
-	bool dontLerp = false;
+	bool dontEasePosition = false;
+	/// <summary>
+	/// Used via stopEasing() to 'teleport' a synced object without unwanted easing.
+	/// Useful for player spawning and whatnot. Also used for snapping.
+	/// </summary>
+	bool dontEaseScale = false;
+	/// <summary>
+	/// Used via stopEasing() to 'teleport' a synced object without unwanted easing.
+	/// Useful for player spawning and whatnot. Also used for snapping.
+	/// </summary>
+	bool dontEaseRotation = false;
 
 	/// <summary>Last time the object was teleported.</summary>
 	float lastTeleportOwnerTime = 0;
@@ -618,8 +629,8 @@ public:
 
 	void checkIfOwnerHasChanged(SmoothState* newState);
 	void applyInterpolationOrExtrapolation();
-	void setPosition(FVector position);
-	void setRotation(const FQuat &rotation);
+	void setPosition(FVector position, bool teleport);
+	void setRotation(const FQuat &rotation, bool teleport);
 	void setScale(FVector scale);
 	void setLinearVelocity(FVector position);
 	void setAngularVelocity(FVector position);
@@ -660,7 +671,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "SmoothSync")
 		void clearBuffer();
 
-	void stopLerping();
+	void stopEasing();
 
 	/// Teleport the player so that position will not be interpolated on non-owners. Use teleport() on the owner and 
 	/// the Actor will jump to the current owner's position on non-owners. 
@@ -718,6 +729,7 @@ public:
 	bool deserializePositionalRestFlag(char syncInformation);
 	bool deserializeRotationalRestFlag(char syncInformation);
 
+	void ResetAtRestState();
 	AController* GetOwningController();
 
 	void shouldTeleport(SmoothState *start, SmoothState *end, float interpolationTimeLocal, float *t);
