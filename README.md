@@ -7,7 +7,7 @@ Third person Multiplayer shooter in the vein of older PC games like quake, and u
 Released on steam here:
 https://store.steampowered.com/app/1306570/Fadeout_Underground/
 
-![alt text](https://i.imgur.com/u0cb7Eo.jpg)
+![alt text](https://steamuserimages-a.akamaihd.net/ugc/1731053039696976053/13634904132FC1E14CD02094E55934A97BA0C0B0/?imw=5000&imh=5000&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false)
 
 /*******************************************************
 
