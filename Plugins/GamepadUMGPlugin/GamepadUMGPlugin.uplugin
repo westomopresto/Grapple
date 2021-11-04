@@ -1,0 +1,31 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "1.02",
+	"FriendlyName" : "Gamepad UMG Plugin",
+	"Description" : "The code in this plugin was written by Epic Developer Nick Darnell. Compiled the code into a plugin by Rama. Ported to 4.17, 4.18, 4.22, 4.23 and 4.24 by SB",
+	"Category" : "Rama",
+	"CreatedBy" : "Rama",
+	"CreatedByURL" : "https://forums.unrealengine.com/showthread.php?299-Wiki-Code-Tutorials",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EngineVersion" : "4.24.0",
+	"CanContainContent" : false,
+	"IsBetaVersion" : false,
+	"Installed" : true,
+	"RequiresBuildPlatform" : false,
+	"Modules" :
+	[
+		{
+			"Name" : "GamepadUMGPlugin",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PreDefault",
+			"WhitelistPlatforms" :
+			[
+				"Win64",
+				"Win32"
+			]
+		}
+	]
+}
