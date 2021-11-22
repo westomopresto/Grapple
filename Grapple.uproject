@@ -96,6 +96,10 @@
 		{
 			"Name": "DatasmithGLTFImporter",
 			"Enabled": true
+		},
+		{
+			"Name": "GamepadUMGPlugin",
+			"Enabled": true
 		}
 	],
 	"TargetPlatforms": [
