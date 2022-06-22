@@ -24,7 +24,7 @@ void ACharacter_w_Tags::BeginPlay()
 	// Skeletal mesh lod update rates
 	GetMesh()->AnimUpdateRateParams->bShouldUseLodMap = true;
 	GetMesh()->AnimUpdateRateParams->bShouldUseMinLod = false;
-	GetMesh()->AnimUpdateRateParams->BaseNonRenderedUpdateRate = 5;
+	GetMesh()->AnimUpdateRateParams->BaseNonRenderedUpdateRate = 15;
 	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Empty(4);
 	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Add(0, 0);
 	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Add(1, 0);
