@@ -27,10 +27,10 @@ void ACharacter_w_Tags::BeginPlay()
 	GetMesh()->AnimUpdateRateParams->BaseNonRenderedUpdateRate = 5;
 	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Empty(4);
 	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Add(0, 0);
-	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Add(1, 1);
+	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Add(1, 0);
 	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Add(2, 2);
 	GetMesh()->AnimUpdateRateParams->LODToFrameSkipMap.Add(3, 3);
-	GetMesh()->AnimUpdateRateParams->MaxEvalRateForInterpolation = 5;
+	GetMesh()->AnimUpdateRateParams->MaxEvalRateForInterpolation = 0;
 }
 
 // Called every frame
