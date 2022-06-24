@@ -1,0 +1,16 @@
+Server is Linux & windows
+Development for server builds.
+
+Client is Linux & Windows
+Shipping for client builds.
+
+The upload batch files are included for updating the linode remote servers.
+
+
+FO_server.bat connects to the remote linux servers & runs the .sh file
+
+updateFadeoutServers.sh is the sh file. Put that on a linux server with steam installed.
+
+Server depots are visible on steam DB. I wont be writing them here.. BUt windows ends with "1" and linux ends with "2"
+
+Make sure you upload the SERVER folder for server builds you dummy.
