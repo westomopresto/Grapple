@@ -1,6 +1,6 @@
 Fadeout Underground source is split into 2 Licenses.
 -------------------------------------------------
-
+Copyright (c) 2022 Weston Mitchell
 License A) Covers all Art, Audio, and intellectual property. (2D Art, 3D Art, Sound Effects, Music, Character Designs, Character Names, Story)
 
 License A
@@ -14,7 +14,7 @@ License B (MIT License)
 
 The "Software" is Fadeout Underground's source code, project, and other NON Art/Audio/IP related material. (Covered in License A)
 
-Copyright (c) 2020 Weston Mitchell
+Copyright (c) 2022 Weston Mitchell
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
