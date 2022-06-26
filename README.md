@@ -12,15 +12,6 @@ https://store.steampowered.com/app/1306570/Fadeout_Underground/
 /*******************************************************
 
 * Copyright (C) 2018-2022 Weston Mitchell westonmitchell@live.com
-
-*
-
 * This files in this repository are part of Fadeout: Underground.
-
-*
-
-* Fadeout: Underground can not be copied and/or distributed without the express
-
-* permission of Weston Mitchell
-
+* Please read License.text for more detailed information.
 *******************************************************/
