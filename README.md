@@ -11,7 +11,7 @@ https://store.steampowered.com/app/1306570/Fadeout_Underground/
 
 /*******************************************************
 
-* Copyright (C) 2018-2021 Weston Mitchell westonmitchell@live.com
+* Copyright (C) 2018-2022 Weston Mitchell westonmitchell@live.com
 
 *
 
