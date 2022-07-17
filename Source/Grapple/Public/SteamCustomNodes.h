@@ -31,5 +31,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, META = (DisplayName = "Open Store", CompactNodeTitle = "Open Store", Category = "Steam Custom Nodes"))
 		static void OpenStore(int32 DLC_AppID);
+
+	UFUNCTION(BlueprintCallable, META = (DisplayName = "AppID Purchase Time", CompactNodeTitle = "AppID Purchase Time", Category = "Steam Custom Nodes"))
+		static int32 DlcInstallDate(int32 AppID);
 };
 

@@ -46,3 +46,13 @@ void USteamCustomNodes::OpenStore(int32 DLC_AppID)
 		SteamFriends()->ActivateGameOverlayToStore(DLC_AppID, k_EOverlayToStoreFlag_None);
 	}
 }
+
+int32 USteamCustomNodes::DlcInstallDate(int32 AppID)
+{
+	if (SteamUser() != nullptr)
+	{
+		int32 Out = SteamApps()->GetEarliestPurchaseUnixTime(AppID);
+		return Out;
+	}
+	return -1;
+}
