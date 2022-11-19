@@ -68,3 +68,4 @@ Content/Fadeout_Content/Core/Maps/map_battlefield_BuiltData.uasset
 Content/Fadeout_Content/Core/Maps/map_Mechanyon_BuiltData.uasset
 *_BuiltData.uasset
 *.log
+BUILD_TOOLS/BuildGame.bat
