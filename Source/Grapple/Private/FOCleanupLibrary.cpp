@@ -22,3 +22,16 @@ void UFOCleanupLibrary::DestroyObject(UObject* Object) {
 		Object->ConditionalBeginDestroy();
 	}
 }
+
+FString UFOCleanupLibrary::GetAppVersion()
+{
+	FString AppVersion;
+	GConfig->GetString(
+		TEXT("/Script/EngineSettings.GeneralProjectSettings"),
+		TEXT("ProjectVersion"),
+		AppVersion,
+		GGameIni
+	);
+
+	return AppVersion;
+}

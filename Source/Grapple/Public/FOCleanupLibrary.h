@@ -24,5 +24,7 @@ class GRAPPLE_API UFOCleanupLibrary : public UBlueprintFunctionLibrary
 public:
 	UFUNCTION(BlueprintCallable, Category = "Optimization", meta = (DefaultToSelf = Object))
 		static void DestroyObject(UObject* Object);
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "GetAppVersion"), Category = "Game Config")
+		static FString GetAppVersion();
 };
 
