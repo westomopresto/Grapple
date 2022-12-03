@@ -8,7 +8,8 @@ You may use, copy, modify, merge, publish, and distribute for NON commercial use
 
 --------------------------------------------------
 
-License B) Covers all project code (Everything outside License A)
+License B) Covers all FADEOUT: UNDERGROUND project code (Everything outside License A)
+Does NOT cover code from Epic, or third parties used in the project.
 
 License B (MIT License)
 
