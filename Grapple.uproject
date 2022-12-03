@@ -113,6 +113,10 @@
 			"Name": "SimpleSteamLeaderboards",
 			"Enabled": true,
 			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/016fab0c75354d72a7af3721b62dd299"
+		},
+		{
+			"Name": "RenderDocPlugin",
+			"Enabled": true
 		}
 	],
 	"TargetPlatforms": [
