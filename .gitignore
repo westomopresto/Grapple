@@ -69,3 +69,5 @@ Content/Fadeout_Content/Core/Maps/map_Mechanyon_BuiltData.uasset
 *_BuiltData.uasset
 *.log
 BUILD_TOOLS/BuildGame.bat
+BUILD_TOOLS/update_US_server_sigma.bat
+BUILD_TOOLS/updateFadeoutServers_sigma.sh
