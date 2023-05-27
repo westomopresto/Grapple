@@ -26,5 +26,7 @@ public:
 		static void DestroyObject(UObject* Object);
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "GetAppVersion"), Category = "Game Config")
 		static FString GetAppVersion();
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "GetDayOfWeek"), Category = "Game Date Info")
+		static int32 GetDayOfWeek();
 };
 

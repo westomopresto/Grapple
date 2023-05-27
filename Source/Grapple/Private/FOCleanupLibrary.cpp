@@ -2,6 +2,7 @@
 
 
 #include "FOCleanupLibrary.h"
+#include <ctime>
 
 // Include SteamAPI and ignore useless warnings
 #if USING_CODE_ANALYSIS
@@ -34,4 +35,11 @@ FString UFOCleanupLibrary::GetAppVersion()
 	);
 
 	return AppVersion;
+}
+
+int32 UFOCleanupLibrary::GetDayOfWeek()
+{
+	time_t now = time(0);
+	tm* localTime = localtime(&now);
+	return localTime->tm_wday;
 }
