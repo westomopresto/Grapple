@@ -1,0 +1,119 @@
+# Blender 3.6.2 MTL File: 'Uphill_Revived.blend'
+# www.blender.org
+
+newmtl M_Concrete_Tiles.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 1.000000 /home/lizband/StarterContent/Ground/T_ConcreteTiles_01_N.tga
+
+newmtl M_Concrete_Tiles.003
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 1.000000 /home/lizband/StarterContent/Ground/T_ConcreteTiles_01_N.tga
+
+newmtl M_Metal_Steel.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 1.000000 /home/Dropbox/Rocket/SourceArt/StarterContent/Textures/T_Base_Metal_N.TGA
+
+newmtl M_Sand_Inst.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 1.000000 /home/Dropbox/Substance_stuff/sand/New_Graph_normal.png
+
+newmtl MatF_Dirt.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 1.000000 /home/lizband/Desktop/NAS/Neverway/Repositories/D:/Dropbox/Substance_stuff/DirtFloor/Dirt_normal.tga
+
+newmtl MatF_Dirt_1.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 1.000000 /home/lizband/Desktop/NAS/Neverway/Repositories/D:/Dropbox/Substance_stuff/DirtFloor/Dirt_normal.tga
+
+newmtl MatF_Dirt_1.003
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Bump -bm 1.000000 /home/lizband/Desktop/NAS/Neverway/Repositories/D:/Dropbox/Substance_stuff/DirtFloor/Dirt_normal.tga
+
+newmtl Material.001
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl WorldGridMaterial.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+
+newmtl WorldGridMaterial.003
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.215861 0.215861 0.215861
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+
+newmtl rockMountain_Albedo_Mat.001
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd /home/lizband/Desktop/NAS/Neverway/Repositories/D:/Dropbox/adventure_game_files/Levels/Materials/Fortress/rockMountain/rockMountain_Albedo.png
