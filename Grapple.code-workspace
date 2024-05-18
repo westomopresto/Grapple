@@ -1,0 +1,23 @@
+{
+	"folders": [
+		{
+			"name": "Grapple",
+			"path": "."
+		},
+		{
+			"name": "UE4",
+			"path": "/media/bigmoth/Eva-02/Fadeout Editor/Fadeout-Fork-UE4-4.24.3"
+		}
+	],
+	"settings": {
+		"typescript.tsc.autoDetect": "off"
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-vscode.cpptools",
+			"ms-vscode.csharp",
+			"vadimcn.vscode-lldb",
+			"ms-vscode.mono-debug"
+		]
+	}
+}
