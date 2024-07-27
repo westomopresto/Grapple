@@ -72,3 +72,4 @@ BUILD_TOOLS/BuildGame.bat
 BUILD_TOOLS/update_US_server_sigma.bat
 BUILD_TOOLS/updateFadeoutServers_sigma.sh
 BUILD_TOOLS/BuildGame_Clients_Only.bat
+Grapple.uproject
