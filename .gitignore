@@ -73,3 +73,6 @@ BUILD_TOOLS/update_US_server_sigma.bat
 BUILD_TOOLS/updateFadeoutServers_sigma.sh
 BUILD_TOOLS/BuildGame_Clients_Only.bat
 Grapple.uproject
+BUILD_TOOLS/update_US_Weston2_server_TDM.bat
+BUILD_TOOLS/uninstallFadeout.sh
+BUILD_TOOLS/uninstall_US_Weston2_server_TDM.bat
